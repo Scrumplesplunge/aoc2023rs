@@ -2,3 +2,5 @@
 !.gitignore
 /inputs
 /target
+/perf.data
+/perf.data.old
