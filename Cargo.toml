@@ -3,6 +3,18 @@ name = "aoc2023rs"
 version = "0.1.0"
 edition = "2021"
 
+[profile.release]
+codegen-units = 1  # Improve output quality at the cost of slower compilation.
+lto = true
+opt-level = "z"  # Optimize for size.
+panic = "abort"  # Abort instead of unwinding on a panic.
+# strip = true
+debug = "full"
+
 [[bin]]
 name = "day01"
 path = "src/day01.rs"
+
+[[bin]]
+name = "day02"
+path = "src/day02.rs"
