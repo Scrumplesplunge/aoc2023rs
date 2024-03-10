@@ -84,8 +84,7 @@ impl Parse for u32 {
 }
 
 struct Card {
-    win: Vec<u32>,
-    values: Vec<u32>,
+    num_wins: u32,
 }
 
 impl Parse for Card {
@@ -94,20 +93,24 @@ impl Parse for Card {
         parser.skip_whitespace();
         let _: u32 = parser.parse()?;
         parser.consume_prefix(": ")?;
-        let mut win = Vec::new();
+        let mut win_buffer = [0; 10];
+        let mut winning_numbers = 0;
         parser.skip_whitespace();
         while let Ok(n) = parser.parse() {
-            win.push(n);
+            if winning_numbers == 10 { panic!("Too many winning numbers") }
+            win_buffer[winning_numbers] = n;
+            winning_numbers += 1;
             parser.skip_whitespace();
         }
+        let wins = &win_buffer[0..winning_numbers];
         parser.consume_prefix("|")?;
-        let mut values = Vec::new();
+        let mut num_wins = 0;
         parser.skip_whitespace();
         while let Ok(n) = parser.parse() {
-            values.push(n);
+            if wins.contains(&n) { num_wins += 1 }
             parser.skip_whitespace();
         }
-        return Ok(Card{win: win, values: values});
+        return Ok(Card{num_wins: num_wins});
     }
 }
 
@@ -130,11 +133,7 @@ fn read_input() -> Result<Vec<Card>, ParseError> {
 fn part1(cards: &[Card]) -> u32 {
     let mut total = 0;
     for card in cards {
-        let mut num_wins = 0;
-        for n in card.values.as_slice() {
-            if card.win.contains(&n) { num_wins += 1 }
-        }
-        total += (1 << num_wins) >> 1;
+        total += (1 << card.num_wins) >> 1;
     }
     return total;
 }
@@ -143,11 +142,7 @@ fn part2(cards: &[Card]) -> u32 {
     let mut counts = vec![1; cards.len()];
     let n = cards.len();
     for (i, card) in cards.iter().enumerate() {
-        let mut num_wins = 0;
-        for v in card.values.as_slice() {
-            if card.win.contains(&v) { num_wins += 1 }
-        }
-        for j in (i + 1).min(n) .. (i + 1 + num_wins).min(n) {
+        for j in (i + 1).min(n) .. (i + 1 + card.num_wins as usize).min(n) {
             counts[j] += counts[i];
         }
     }
