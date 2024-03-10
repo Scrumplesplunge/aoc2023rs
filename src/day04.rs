@@ -2,127 +2,86 @@ use std::io;
 use std::io::Read;
 use std::str;
 
-#[derive(Debug)]
-enum ParseError {
-    Error(String),
+fn skip_whitespace(input: &mut &str) {
+    *input = input.trim_start_matches(|c: char| c == ' ');
 }
 
-struct Parser<'a> {
-    input: &'a str,
+fn consume_prefix(input: &mut &str, prefix: &str) {
+    if !input.starts_with(prefix) {
+        panic!("expected \"{}\"", prefix);
+    }
+    *input = &input[prefix.len()..];
 }
 
-impl<'a> Parser<'a> {
-    fn new(input: &'a str) -> Parser<'a> {
-        return Parser{input: input};
+fn consume_newline(input: &mut &str) {
+    if !input.starts_with('\n') {
+        panic!("expected newline");
     }
-    fn at_end(&self) -> bool { return self.input.is_empty() }
-    fn advance_bytes(&mut self, n: usize) {
-        self.input = &self.input[n..];
-    }
-    fn skip_whitespace(&mut self) {
-        let n = self.input.find(|c: char| c != ' ')
-                          .unwrap_or(self.input.len());
-        self.advance_bytes(n);
-    }
-    fn try_consume_prefix(&mut self, prefix: &str) -> bool {
-        if !self.input.starts_with(prefix) { return false }
-        self.input = &self.input[prefix.len()..];
-        return true;
-    }
-    fn consume_prefix(&mut self, prefix: &str) -> Result<(), ParseError> {
-        if self.try_consume_prefix(prefix) { return Ok(()) }
-        return Err(self.error(format!("expected \"{}\"", prefix).as_str()));
-    }
-    fn newline(&mut self) -> Result<(), ParseError> {
-        if self.try_consume_prefix("\n") {
-            return Ok(());
-        } else {
-            return Err(self.error("expected newline"));
-        }
-    }
-    fn error(&mut self, message: &str) -> ParseError {
-        return ParseError::Error(message.to_string());
-    }
-    fn parse<T: Parse>(&mut self) -> Result<T, ParseError> {
-        return Parse::parse(self);
-    }
+    *input = &input[1..];
 }
 
-trait Parse: Sized {
-    fn parse(parser: &mut Parser) -> Result<Self, ParseError>;
-}
-
-impl Parse for u32 {
-    fn parse(parser: &mut Parser) -> Result<Self, ParseError> {
-        let l = parser.input.find(|c: char| !c.is_digit(10))
-                            .unwrap_or(parser.input.len());
-        if l == 0 { return Err(parser.error("expected number")) }
-        let mut n = 0;
-        let digits = &parser.input[0 .. l];
-        for c in digits.chars().map(|c| c.to_digit(10).unwrap()) {
-            n = 10 * n + c;
-        }
-        parser.advance_bytes(l);
-        return Ok(n);
+fn parse_int(input: &mut &str) -> u32 {
+    let l = input.find(|c: char| !c.is_digit(10))
+                 .unwrap_or(input.len());
+    if l == 0 { panic!("expected number") }
+    let mut n = 0;
+    let digits = &input[0 .. l];
+    for c in digits.chars().map(|c| c.to_digit(10).unwrap()) {
+        n = 10 * n + c;
     }
+    *input = &input[l..];
+    return n;
 }
 
-struct Card {
-    num_wins: u32,
-}
-
-impl Parse for Card {
-    fn parse(parser: &mut Parser) -> Result<Self, ParseError> {
-        parser.consume_prefix("Card ")?;
-        parser.skip_whitespace();
-        let _: u32 = parser.parse()?;
-        parser.consume_prefix(": ")?;
-        let mut win_buffer = [0; 10];
-        let mut winning_numbers = 0;
-        parser.skip_whitespace();
-        while let Ok(n) = parser.parse() {
-            if winning_numbers == 10 { panic!("Too many winning numbers") }
-            win_buffer[winning_numbers] = n;
-            winning_numbers += 1;
-            parser.skip_whitespace();
-        }
-        let wins = &win_buffer[0..winning_numbers];
-        parser.consume_prefix("|")?;
-        let mut num_wins = 0;
-        parser.skip_whitespace();
-        while let Ok(n) = parser.parse() {
-            if wins.contains(&n) { num_wins += 1 }
-            parser.skip_whitespace();
-        }
-        return Ok(Card{num_wins: num_wins});
+fn parse_wins(input: &mut &str) -> u32 {
+    consume_prefix(&mut *input, "Card ");
+    skip_whitespace(&mut *input);
+    let _: u32 = parse_int(&mut *input);
+    consume_prefix(&mut *input, ": ");
+    let mut win_buffer = [0; 10];
+    let mut winning_numbers = 0;
+    skip_whitespace(&mut *input);
+    while input.starts_with(|c: char| c.is_digit(10)) {
+        if winning_numbers == 10 { panic!("Too many winning numbers") }
+        win_buffer[winning_numbers] = parse_int(&mut *input);
+        winning_numbers += 1;
+        skip_whitespace(&mut *input);
     }
+    let wins = &win_buffer[0..winning_numbers];
+    consume_prefix(&mut *input, "|");
+    let mut num_wins = 0;
+    skip_whitespace(&mut *input);
+    while input.starts_with(|c: char| c.is_digit(10)) {
+        if wins.contains(&parse_int(&mut *input)) { num_wins += 1 }
+        skip_whitespace(&mut *input);
+    }
+    return num_wins;
 }
 
 fn main() {
     // Load the input.
     let mut buffer = [0; 24 * 1024];
     let size = io::stdin().read(&mut buffer).unwrap();
-    let input = str::from_utf8(&buffer[0..size]).unwrap();
+    let mut input = str::from_utf8(&buffer[0..size]).unwrap();
 
     // Parse the cards.
-    let mut parser = Parser::new(input);
     let mut part1 = 0;
     let mut part2 = 0;
     let mut counts = [1; 10];
     let mut i = 0;
-    while !parser.at_end() {
-        let card: Card = parser.parse().unwrap();
-        parser.newline().unwrap();
+    while input != "" {
+        let num_wins = parse_wins(&mut input);
+        consume_newline(&mut input);
 
         // Part 1: accumulate points based on the number of wins.
-        part1 += (1 << card.num_wins) >> 1;
+        part1 += (1 << num_wins) >> 1;
 
         // Part 2: accumulate cards.
         let n = counts[i];
         part2 += n;
         counts[i] = 1;
         i = if i < 9 { i + 1 } else { 0 };
-        for j in 0 .. card.num_wins as usize {
+        for j in 0 .. num_wins as usize {
             let k = if i + j < 10 { i + j } else { i + j - 10 };
             counts[k] += n;
         }
