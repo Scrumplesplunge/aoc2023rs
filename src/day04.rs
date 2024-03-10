@@ -1,51 +1,20 @@
 use std::io;
 use std::str;
 
-fn skip_whitespace(input: &mut &str) {
-    *input = input.trim_start_matches(|c: char| c == ' ');
-}
-
-fn consume_prefix(input: &mut &str, prefix: &str) {
-    if !input.starts_with(prefix) {
-        panic!("expected \"{}\"", prefix);
-    }
-    *input = &input[prefix.len()..];
-}
-
-fn parse_int(input: &mut &str) -> u32 {
-    let l = input.find(|c: char| !c.is_digit(10))
-                 .unwrap_or(input.len());
-    if l == 0 { panic!("expected number") }
-    let mut n = 0;
-    let digits = &input[0 .. l];
-    for c in digits.chars().map(|c| c.to_digit(10).unwrap()) {
-        n = 10 * n + c;
-    }
-    *input = &input[l..];
-    return n;
-}
-
-fn parse_wins(input: &mut &str) -> u32 {
-    consume_prefix(&mut *input, "Card ");
-    skip_whitespace(&mut *input);
-    let _: u32 = parse_int(&mut *input);
-    consume_prefix(&mut *input, ": ");
+fn parse_wins(input: &str) -> u32 {
+    let input = input.split_once(':').unwrap().1;
     let mut win_buffer = [0; 10];
     let mut winning_numbers = 0;
-    skip_whitespace(&mut *input);
-    while input.starts_with(|c: char| c.is_digit(10)) {
+    let (win_str, values_str) = input.split_once('|').unwrap();
+    for n in win_str.split_ascii_whitespace().map(|n| n.parse().unwrap()) {
         if winning_numbers == 10 { panic!("Too many winning numbers") }
-        win_buffer[winning_numbers] = parse_int(&mut *input);
+        win_buffer[winning_numbers] = n;
         winning_numbers += 1;
-        skip_whitespace(&mut *input);
     }
     let wins = &win_buffer[0..winning_numbers];
-    consume_prefix(&mut *input, "|");
     let mut num_wins = 0;
-    skip_whitespace(&mut *input);
-    while input.starts_with(|c: char| c.is_digit(10)) {
-        if wins.contains(&parse_int(&mut *input)) { num_wins += 1 }
-        skip_whitespace(&mut *input);
+    for n in values_str.split_ascii_whitespace().map(|n| n.parse().unwrap()) {
+        if wins.contains(&n) { num_wins += 1 }
     }
     return num_wins;
 }
@@ -57,9 +26,7 @@ fn main() {
     let mut counts = [1; 10];
     let mut i = 0;
     for line in io::stdin().lines().map(|l| l.unwrap()) {
-        let mut input = line.as_str();
-        let num_wins = parse_wins(&mut input);
-        if input != "" { panic!("Trailing characters: {}", input) }
+        let num_wins = parse_wins(&line);
 
         // Part 1: accumulate points based on the number of wins.
         part1 += (1 << num_wins) >> 1;
