@@ -2,37 +2,21 @@ use std::io;
 use std::io::Read;
 use std::str;
 
-#[derive(Copy, Clone, Debug)]
-struct Location {
-    line: u32,
-    column: u32,
-}
-
 #[derive(Debug)]
 enum ParseError {
-    ErrorAt(Location, String),
+    Error(String),
 }
 
 struct Parser<'a> {
     input: &'a str,
-    location: Location,
 }
 
 impl<'a> Parser<'a> {
     fn new(input: &'a str) -> Parser<'a> {
-        return Parser{input: input, location: Location{line: 1, column: 1}};
+        return Parser{input: input};
     }
     fn at_end(&self) -> bool { return self.input.is_empty() }
     fn advance_bytes(&mut self, n: usize) {
-        if n > self.input.len() { panic!("Advanced beyond EOF") }
-        for c in self.input[0..n].chars() {
-            if c == '\n' {
-                self.location.line += 1;
-                self.location.column = 1;
-            } else {
-                self.location.column += 1;
-            }
-        }
         self.input = &self.input[n..];
     }
     fn skip_whitespace(&mut self) {
@@ -57,7 +41,7 @@ impl<'a> Parser<'a> {
         }
     }
     fn error(&mut self, message: &str) -> ParseError {
-        return ParseError::ErrorAt(self.location, message.to_string());
+        return ParseError::Error(message.to_string());
     }
     fn parse<T: Parse>(&mut self) -> Result<T, ParseError> {
         return Parse::parse(self);
