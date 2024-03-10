@@ -1,5 +1,4 @@
 use std::io;
-use std::io::Read;
 use std::str;
 
 fn skip_whitespace(input: &mut &str) {
@@ -11,13 +10,6 @@ fn consume_prefix(input: &mut &str, prefix: &str) {
         panic!("expected \"{}\"", prefix);
     }
     *input = &input[prefix.len()..];
-}
-
-fn consume_newline(input: &mut &str) {
-    if !input.starts_with('\n') {
-        panic!("expected newline");
-    }
-    *input = &input[1..];
 }
 
 fn parse_int(input: &mut &str) -> u32 {
@@ -59,19 +51,15 @@ fn parse_wins(input: &mut &str) -> u32 {
 }
 
 fn main() {
-    // Load the input.
-    let mut buffer = [0; 24 * 1024];
-    let size = io::stdin().read(&mut buffer).unwrap();
-    let mut input = str::from_utf8(&buffer[0..size]).unwrap();
-
     // Parse the cards.
     let mut part1 = 0;
     let mut part2 = 0;
     let mut counts = [1; 10];
     let mut i = 0;
-    while input != "" {
+    for line in io::stdin().lines().map(|l| l.unwrap()) {
+        let mut input = line.as_str();
         let num_wins = parse_wins(&mut input);
-        consume_newline(&mut input);
+        if input != "" { panic!("Trailing characters: {}", input) }
 
         // Part 1: accumulate points based on the number of wins.
         part1 += (1 << num_wins) >> 1;
