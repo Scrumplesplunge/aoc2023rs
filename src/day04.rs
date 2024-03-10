@@ -114,7 +114,7 @@ impl Parse for Card {
     }
 }
 
-fn read_input() -> Result<Vec<Card>, ParseError> {
+fn main() {
     // Load the input.
     let mut buffer = [0; 24 * 1024];
     let size = io::stdin().read(&mut buffer).unwrap();
@@ -122,34 +122,26 @@ fn read_input() -> Result<Vec<Card>, ParseError> {
 
     // Parse the cards.
     let mut parser = Parser::new(input);
-    let mut cards = Vec::new();
+    let mut part1 = 0;
+    let mut part2 = 0;
+    let mut counts = [1; 10];
+    let mut i = 0;
     while !parser.at_end() {
-        cards.push(parser.parse()?);
-        parser.newline()?;
-    }
-    return Ok(cards);
-}
+        let card: Card = parser.parse().unwrap();
+        parser.newline().unwrap();
 
-fn part1(cards: &[Card]) -> u32 {
-    let mut total = 0;
-    for card in cards {
-        total += (1 << card.num_wins) >> 1;
-    }
-    return total;
-}
+        // Part 1: accumulate points based on the number of wins.
+        part1 += (1 << card.num_wins) >> 1;
 
-fn part2(cards: &[Card]) -> u32 {
-    let mut counts = vec![1; cards.len()];
-    let n = cards.len();
-    for (i, card) in cards.iter().enumerate() {
-        for j in (i + 1).min(n) .. (i + 1 + card.num_wins as usize).min(n) {
-            counts[j] += counts[i];
+        // Part 2: accumulate cards.
+        let n = counts[i];
+        part2 += n;
+        counts[i] = 1;
+        i = if i < 9 { i + 1 } else { 0 };
+        for j in 0 .. card.num_wins as usize {
+            let k = if i + j < 10 { i + j } else { i + j - 10 };
+            counts[k] += n;
         }
     }
-    return counts.iter().sum();
-}
-
-fn main() {
-    let cards = read_input().unwrap();
-    print!("{}\n{}\n", part1(&cards), part2(&cards));
+    print!("{}\n{}\n", part1, part2);
 }
