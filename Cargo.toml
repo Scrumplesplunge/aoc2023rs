@@ -38,3 +38,10 @@ path = "src/day06.rs"
 [[bin]]
 name = "day07"
 path = "src/day07.rs"
+
+[[bin]]
+name = "day08"
+path = "src/day08.rs"
+
+[dependencies]
+num-integer = "~0.1.46"
