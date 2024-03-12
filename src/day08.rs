@@ -1,37 +1,64 @@
 use std::io;
 use num_integer;
 
-fn part1(steps: &str, nodes: &[(String, (String, String))]) -> u32 {
-    let mut directions = steps.chars().cycle();
+fn read_id(id: &str) -> u16 {
+    let mut n: u16 = 0;
+    for c in id.chars().take(3) {
+        n = 32 * n + (c as u16 - 'A' as u16);
+    }
+    return n;
+}
+
+fn is_start(id: u16) -> bool { id % 32 == 0 }
+fn is_end(id: u16) -> bool { id % 32 == 25 }
+
+fn read_input() -> (Vec<bool>, Vec<(u16, (u16, u16))>) {
+    let mut step_line = String::new();
+    io::stdin().read_line(&mut step_line).unwrap();
+    step_line.pop();
+    let steps = step_line.chars().map(|c| c == 'L').collect();
+    let mut nodes: Vec<(u16, (u16, u16))> = Vec::new();
+    for line in io::stdin().lines().skip(1).map(|l| l.unwrap()) {
+        let (node, branches) = line.split_once(" = ").unwrap();
+        let (l, r) = branches
+            .strip_prefix("(").unwrap()
+            .strip_suffix(")").unwrap()
+            .split_once(", ").unwrap();
+        nodes.push((read_id(node), (read_id(l), read_id(r))));
+    }
+    nodes.sort();
+    return (steps, nodes);
+}
+
+fn part1(steps: &[bool], nodes: &[(u16, (u16, u16))]) -> u32 {
+    let mut directions = steps.iter().cycle();
     let mut num_steps = 0;
-    let mut node: &str = "AAA";
-    while node != "ZZZ" {
+    let mut node: u16 = read_id("AAA");
+    while node != read_id("ZZZ") {
         num_steps += 1;
         let (_, (l, r)) =
-            &nodes[nodes.binary_search_by_key(&node, |(k, _)| k).unwrap()];
+            &nodes[nodes.binary_search_by_key(&node, |(k, _)| *k).unwrap()];
         match directions.next().unwrap() {
-            'L' => { node = &l },
-            'R' => { node = &r },
-            c => panic!("bad direction: {}", c),
+            true => { node = *l },
+            false => { node = *r },
         }
     }
     return num_steps;
 }
 
-fn part2(steps: &str, nodes: &[(String, (String, String))]) -> u64 {
-    let mut directions = steps.chars().cycle();
+fn part2(steps: &[bool], nodes: &[(u16, (u16, u16))]) -> u64 {
+    let mut directions = steps.iter().cycle();
     let mut total = 1;
-    for start in nodes.iter().map(|(k, _)| k).filter(|k| k.ends_with("A")) {
-        let mut node: &str = start;
+    for start in nodes.iter().map(|(k, _)| *k).filter(|k| is_start(*k)) {
+        let mut node: u16 = start;
         let mut num_steps = 0;
-        while !node.ends_with("Z") {
+        while !is_end(node) {
             num_steps += 1;
             let (_, (l, r)) =
-                &nodes[nodes.binary_search_by_key(&node, |(k, _)| k).unwrap()];
+                &nodes[nodes.binary_search_by_key(&node, |(k, _)| *k).unwrap()];
             match directions.next().unwrap() {
-                'L' => { node = &l },
-                'R' => { node = &r },
-                c => panic!("bad direction: {}", c),
+                true => { node = *l },
+                false => { node = *r },
             }
         }
         total = num_integer::lcm(total, num_steps);
@@ -40,19 +67,6 @@ fn part2(steps: &str, nodes: &[(String, (String, String))]) -> u64 {
 }
 
 fn main() {
-    let mut steps = String::new();
-    io::stdin().read_line(&mut steps).unwrap();
-    steps.pop();
-    let mut nodes: Vec<(String, (String, String))> = Vec::new();
-    for line in io::stdin().lines().skip(1).map(|l| l.unwrap()) {
-        let (node, branches) = line.split_once(" = ").unwrap();
-        let (l, r) = branches
-            .strip_prefix("(").unwrap()
-            .strip_suffix(")").unwrap()
-            .split_once(", ").unwrap();
-        nodes.push((node.to_string(), (l.to_string(), r.to_string())));
-    }
-    nodes.sort();
-
+    let (steps, nodes) = read_input();
     print!("{}\n{}\n", part1(&steps, &nodes), part2(&steps, &nodes));
 }
