@@ -31,11 +31,13 @@ fn arrangements(pattern: &Ascii, groups: &[u8]) -> Table {
         a[i][m] = if pattern[i] == b'#' { 0 } else { a[i + 1][m] };
     }
     for i in (0..n).rev() {
-        for j in (0..m).rev() {
-            if pattern[i] == b'.' {
-                // Empty space: skip to the next group.
+        if pattern[i] == b'.' {
+            // Empty space: skip to the next group.
+            for j in 0..m {
                 a[i][j] = a[i + 1][j];
-            } else {
+            }
+        } else {
+            for j in (0..m).rev() {
                 let c = groups[j] as usize;
                 let end = i + c;
                 if end <= n {
