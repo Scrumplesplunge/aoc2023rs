@@ -6,10 +6,10 @@ const BUFFER_SIZE: usize = (MAX_SIZE + 1) * MAX_SIZE;
 
 #[derive(Copy, Clone)]
 enum Direction {
-    Up = 0,
-    Down = 1,
-    Left = 2,
-    Right = 3,
+    Up = 1,
+    Down = 2,
+    Left = 4,
+    Right = 8,
 }
 
 fn next(size: usize, (px, py): (usize, usize), direction: Direction) -> Option<(usize, usize)> {
@@ -24,14 +24,14 @@ fn next(size: usize, (px, py): (usize, usize), direction: Direction) -> Option<(
 fn energise(
     grid: &[u8],
     size: usize,
-    seen: &mut [[bool; 4]],
+    seen: &mut [u8],
     (mut px, mut py): (usize, usize),
     mut direction: Direction,
 ) {
     loop {
         let i = py * size + px;
-        if seen[i][direction as usize] { return }
-        seen[i][direction as usize] = true;
+        if seen[i] & (direction as u8) != 0 { return }
+        seen[i] |= direction as u8;
         match (grid[i], direction) {
             (b'.', _) => {}
             (b'\\', Direction::Up) => direction = Direction::Left,
@@ -67,9 +67,9 @@ fn energise(
 }
 
 fn energised(grid: &[u8], size: usize, start: (usize, usize), direction: Direction) -> usize {
-    let mut seen = [[false; 4]; BUFFER_SIZE];
+    let mut seen = [0; BUFFER_SIZE];
     energise(grid, size, &mut seen, start, direction);
-    return seen.iter().filter(|d| d.iter().any(|s| *s)).count();
+    return seen.iter().filter(|d| **d != 0).count();
 }
 
 fn main() {
