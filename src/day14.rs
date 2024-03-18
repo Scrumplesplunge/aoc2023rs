@@ -4,7 +4,7 @@ use std::io::Read;
 const MAX_SIZE: usize = 100;
 const ROW: usize = 128;
 
-fn load_north(grid: &[u8], size: usize) -> usize {
+fn load(grid: &[u8], size: usize) -> usize {
     let mut total = 0;
     for y in 0..size {
         let row = &grid[y * ROW..][..size];
@@ -13,34 +13,20 @@ fn load_north(grid: &[u8], size: usize) -> usize {
     return total;
 }
 
-fn load_east(grid: &[u8], size: usize) -> usize {
-    let mut total = 0;
-    for y in 0..size {
-        let row = &grid[y * ROW..][..size];
-        for x in 0..size {
-            if row[x] == b'O' { total += x + 1 }
-        }
-    }
-    return total;
-}
-
-fn tumble(input: &[u8], output: &mut [u8], size: usize) {
+fn roll_n(grid: &mut [u8], size: usize) {
     for x in 0..size {
-        let out = x * ROW + size - 1;
-        let mut i = 0;
+        let mut o = x;
         for y in 0..size {
-            match input[y * ROW + x] {
-                b'.' => {
-                    output[out - y] = b'.';
-                }
+            let i = y * ROW + x;
+            match grid[i] {
+                b'.' => {}
                 b'O' => {
-                    output[out - y] = b'.';
-                    output[out - i] = b'O';
-                    i += 1;
+                    grid[i] = b'.';
+                    grid[o] = b'O';
+                    o += ROW;
                 }
                 b'#' => {
-                    output[out - y] = b'#';
-                    i = y + 1;
+                    o = (y + 1) * ROW + x;
                 }
                 _ => panic!("bad contents"),
             }
@@ -48,11 +34,74 @@ fn tumble(input: &[u8], output: &mut [u8], size: usize) {
     }
 }
 
-fn cycle(a: &mut [u8], b: &mut [u8], size: usize) {
-    tumble(a, b, size);
-    tumble(b, a, size);
-    tumble(a, b, size);
-    tumble(b, a, size);
+fn roll_e(grid: &mut [u8], size: usize) {
+    for y in 0..size {
+        let mut o = size;
+        let row = &mut grid[y * ROW..][..size];
+        for x in (0..size).rev() {
+            match row[x] {
+                b'.' => {}
+                b'O' => {
+                    o -= 1;
+                    row[x] = b'.';
+                    row[o] = b'O';
+                }
+                b'#' => {
+                    o = x;
+                }
+                _ => panic!("bad contents"),
+            }
+        }
+    }
+}
+
+fn roll_s(grid: &mut [u8], size: usize) {
+    for x in 0..size {
+        let mut o = size * ROW + x;
+        for y in (0..size).rev() {
+            let i = y * ROW + x;
+            match grid[i] {
+                b'.' => {}
+                b'O' => {
+                    o -= ROW;
+                    grid[i] = b'.';
+                    grid[o] = b'O';
+                }
+                b'#' => {
+                    o = y * ROW + x;
+                }
+                _ => panic!("bad contents"),
+            }
+        }
+    }
+}
+
+fn roll_w(grid: &mut [u8], size: usize) {
+    for y in 0..size {
+        let mut o = 0;
+        let row = &mut grid[y * ROW..][..size];
+        for x in 0..size {
+            match row[x] {
+                b'.' => {}
+                b'O' => {
+                    row[x] = b'.';
+                    row[o] = b'O';
+                    o += 1;
+                }
+                b'#' => {
+                    o = x + 1;
+                }
+                _ => panic!("bad contents"),
+            }
+        }
+    }
+}
+
+fn cycle(grid: &mut [u8], size: usize) {
+    roll_n(grid, size);
+    roll_w(grid, size);
+    roll_s(grid, size);
+    roll_e(grid, size);
 }
 
 fn main() {
@@ -82,35 +131,31 @@ fn main() {
         buffer.copy_within(from..from + size, y * ROW);
     }
 
-    let mut buffer_2 = [0; MAX_SIZE * ROW];
-
     // Roll all the stones North.
-    tumble(&buffer, &mut buffer_2, size);
-
-    let part1 = load_east(&buffer_2, size);
-    tumble(&buffer_2, &mut buffer, size);
-    tumble(&buffer, &mut buffer_2, size);
-    tumble(&buffer_2, &mut buffer, size);
+    roll_n(&mut buffer, size);
+    let part1 = load(&buffer, size);
+    roll_w(&mut buffer, size);
+    roll_s(&mut buffer, size);
+    roll_e(&mut buffer, size);
 
     let mut hare = buffer;
-    let mut hare_2 = [0; MAX_SIZE * ROW];
-    cycle(&mut hare, &mut hare_2, size);
+    cycle(&mut hare, size);
 
     for i in 1..1000000000 {
         if buffer == hare {
             // Cycles i and 2i are the same, so the 1e9'th cycle will look the
             // same as the (i + 1e9 % i)th.
             for _ in 0 .. 1000000000 % i {
-                cycle(&mut buffer, &mut buffer_2, size);
+                cycle(&mut buffer, size);
             }
             break;
         }
 
-        cycle(&mut buffer, &mut buffer_2, size);
-        cycle(&mut hare, &mut hare_2, size);
-        cycle(&mut hare, &mut hare_2, size);
+        cycle(&mut buffer, size);
+        cycle(&mut hare, size);
+        cycle(&mut hare, size);
     }
 
-    let part2 = load_north(&buffer, size);
+    let part2 = load(&buffer, size);
     print!("{}\n{}\n", part1, part2);
 }
