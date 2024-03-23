@@ -174,41 +174,33 @@ fn act(ops: &[Op], part: [(u16, u16); 4], action: Action) -> u64 {
     }
 }
 
-fn eval(ops: &[Op], i: usize, part: [(u16, u16); 4]) -> u64 {
-    match ops[i] {
-        Op::IfLess(c, x, action) => {
-            let (a, b) = part[c as usize];
-            if b < x {
-                return act(ops, part, action);
-            } else if x <= a {
-                // All unconditionally false.
-                return eval(ops, i + 1, part);
-            } else {
-                // Some are true, some are false.
-                let mut when_true = part;
-                let mut when_false = part;
-                when_true[c as usize].1 = x - 1;
-                when_false[c as usize].0 = x;
-                return act(ops, when_true, action) + eval(ops, i + 1, when_false);
+fn eval(ops: &[Op], mut i: usize, mut part: [(u16, u16); 4]) -> u64 {
+    let mut accepted = 0;
+    loop {
+        match ops[i] {
+            Op::IfLess(c, x, action) => {
+                let (a, b) = part[c as usize];
+                if a < x {
+                    let mut when_true = part;
+                    when_true[c as usize].1 = b.min(x - 1);
+                    accepted += act(ops, when_true, action);
+                    part[c as usize].0 = x.max(a);
+                }
+            }
+            Op::IfMore(c, x, action) => {
+                let (a, b) = part[c as usize];
+                if x < b {
+                    let mut when_true = part;
+                    when_true[c as usize].0 = a.max(x + 1);
+                    accepted += act(ops, when_true, action);
+                    part[c as usize].1 = x.min(b);
+                }
+            }
+            Op::Unconditionally(action) => {
+                return accepted + act(ops, part, action);
             }
         }
-        Op::IfMore(c, x, action) => {
-            let (a, b) = part[c as usize];
-            if x < a {
-                return act(ops, part, action);
-            } else if b <= x {
-                // All unconditionally false.
-                return eval(ops, i + 1, part);
-            } else {
-                // Some are true, some are false.
-                let mut when_true = part;
-                let mut when_false = part;
-                when_true[c as usize].0 = x + 1;
-                when_false[c as usize].1 = x;
-                return act(ops, when_true, action) + eval(ops, i + 1, when_false);
-            }
-        }
-        Op::Unconditionally(action) => act(ops, part, action),
+        i += 1;
     }
 }
 
