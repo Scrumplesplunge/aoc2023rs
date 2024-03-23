@@ -2,7 +2,7 @@ use std::io;
 use std::io::Read;
 
 const MAX_OPS: usize = 2048;
-const MAX_WORKFLOWS: usize = 600;
+const MAX_WORKFLOW_ID: u16 = 26 * (26 * 26 + 26) + 26;  // zzz
 
 #[derive(Copy, Clone)]
 enum Category { X, M, A, S }
@@ -94,14 +94,13 @@ fn read_workflow(ops: &mut [Op], num_ops: &mut usize, input: &mut &[u8]) -> (Wor
 fn read_workflows<'a>(ops: &'a mut [Op], input: &mut &[u8]) -> (&'a [Op], usize) {
     let mut num_ops = 0;
 
-    // `workflows[i]` is a pair `(id, offset)` where `id` is derived from the workflow name and
-    // `offset` is the index of the first operation of the workflow in `ops`.
-    let mut workflows = [(0, 0); MAX_WORKFLOWS];
-    let mut num_workflows = 0;
+    // `workflows[id]` is a value `offset` where `id` is derived from the workflow name and `offset`
+    // is the index of the first operation of the workflow in `ops`.
+    let mut workflows = [0; MAX_WORKFLOW_ID as usize + 1];
 
     while input[0] != b'\n' {
-        workflows[num_workflows] = read_workflow(ops, &mut num_ops, input);
-        num_workflows += 1;
+        let (id, offset) = read_workflow(ops, &mut num_ops, input);
+        workflows[id as usize] = offset;
         if input[0] != b'\n' { panic!("trailing bytes") }
         *input = &input[1..];
     }
@@ -114,14 +113,12 @@ fn read_workflows<'a>(ops: &'a mut [Op], input: &mut &[u8]) -> (&'a [Op], usize)
             Op::IfMore(_, _, a) => a,
             Op::Unconditionally(a) => a,
         };
-        if let Action::Delegate(x) = action {
-            *x = workflows[0..num_workflows].iter().find(|(id, _)| *id == *x).unwrap().1;
-        }
+        if let Action::Delegate(x) = action { *x = workflows[*x as usize] }
     }
 
     // Identify the starting position.
     let start_id: WorkflowId = read_workflow_name(&mut "in.".as_bytes());
-    let start = workflows[0..num_workflows].iter().find(|(id, _)| *id == start_id).unwrap().1;
+    let start = workflows[start_id as usize];
     return (&ops[0..num_ops], start as usize);
 }
 
