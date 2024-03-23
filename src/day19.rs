@@ -166,17 +166,20 @@ fn count(part: [(u16, u16); 4]) -> u64 {
     return total;
 }
 
+fn act(ops: &[Op], part: [(u16, u16); 4], action: Action) -> u64 {
+    match action {
+        Action::Accept() => count(part),
+        Action::Reject() => 0,
+        Action::Delegate(j) => eval(ops, j as usize, part),
+    }
+}
+
 fn eval(ops: &[Op], i: usize, part: [(u16, u16); 4]) -> u64 {
     match ops[i] {
         Op::IfLess(c, x, action) => {
             let (a, b) = part[c as usize];
             if b < x {
-                // All unconditionally true.
-                return match action {
-                    Action::Accept() => count(part),
-                    Action::Reject() => 0,
-                    Action::Delegate(j) => eval(ops, j as usize, part),
-                }
+                return act(ops, part, action);
             } else if x <= a {
                 // All unconditionally false.
                 return eval(ops, i + 1, part);
@@ -186,24 +189,13 @@ fn eval(ops: &[Op], i: usize, part: [(u16, u16); 4]) -> u64 {
                 let mut when_false = part;
                 when_true[c as usize].1 = x - 1;
                 when_false[c as usize].0 = x;
-                return match action {
-                    Action::Accept() => count(when_true) + eval(ops, i + 1, when_false),
-                    Action::Reject() => eval(ops, i + 1, when_false),
-                    Action::Delegate(j) => {
-                        eval(ops, j as usize, when_true) + eval(ops, i + 1, when_false)
-                    }
-                }
+                return act(ops, when_true, action) + eval(ops, i + 1, when_false);
             }
         }
         Op::IfMore(c, x, action) => {
             let (a, b) = part[c as usize];
             if x < a {
-                // All unconditionally true.
-                return match action {
-                    Action::Accept() => count(part),
-                    Action::Reject() => 0,
-                    Action::Delegate(j) => eval(ops, j as usize, part),
-                }
+                return act(ops, part, action);
             } else if b <= x {
                 // All unconditionally false.
                 return eval(ops, i + 1, part);
@@ -213,22 +205,10 @@ fn eval(ops: &[Op], i: usize, part: [(u16, u16); 4]) -> u64 {
                 let mut when_false = part;
                 when_true[c as usize].0 = x + 1;
                 when_false[c as usize].1 = x;
-                return match action {
-                    Action::Accept() => count(when_true) + eval(ops, i + 1, when_false),
-                    Action::Reject() => eval(ops, i + 1, when_false),
-                    Action::Delegate(j) => {
-                        eval(ops, j as usize, when_true) + eval(ops, i + 1, when_false)
-                    }
-                }
+                return act(ops, when_true, action) + eval(ops, i + 1, when_false);
             }
         }
-        Op::Unconditionally(action) => {
-            return match action {
-                Action::Accept() => count(part),
-                Action::Reject() => 0,
-                Action::Delegate(j) => eval(ops, j as usize, part),
-            }
-        }
+        Op::Unconditionally(action) => act(ops, part, action),
     }
 }
 
