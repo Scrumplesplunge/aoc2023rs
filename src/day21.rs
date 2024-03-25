@@ -27,18 +27,41 @@ fn read_input() -> Grid<bool> {
     return result;
 }
 
-fn explore(grid: &Grid<bool>, (x, y): (usize, usize), seen: &mut Grid<bool>) {
-    if grid[y][x] || seen[y][x] { return }
-    seen[y][x] = true;
-    if x < SIZE - 1 { explore(grid, (x + 1, y), seen) }
-    if x > 0 { explore(grid, (x - 1, y), seen) }
-    if y < SIZE - 1 { explore(grid, (x, y + 1), seen) }
-    if y > 0 { explore(grid, (x, y - 1), seen) }
+fn try_add(
+    (x, y): (u8, u8),
+    grid: &Grid<bool>,
+    seen: &mut Grid<bool>,
+    queue: &mut [(u8, u8)],
+    back: &mut usize,
+) {
+    if grid[y as usize][x as usize] || seen[y as usize][x as usize] { return }
+    seen[y as usize][x as usize] = true;
+    queue[*back] = (x, y);
+    *back += 1;
 }
 
 fn reachable(grid: &Grid<bool>) -> Grid<bool> {
     let mut seen = [[false; SIZE]; SIZE];
-    explore(grid, (65, 65), &mut seen);
+    let mut queue: [(u8, u8); SIZE * SIZE] = [(0, 0); SIZE * SIZE];
+    queue[0] = (65, 65);
+    let mut front = 0;
+    let mut back = 1;
+    while front != back {
+        let (x, y) = queue[front];
+        front += 1;
+        if x > 0 {
+            try_add((x - 1, y), &grid, &mut seen, &mut queue, &mut back);
+        }
+        if x < (SIZE - 1) as u8 {
+            try_add((x + 1, y), &grid, &mut seen, &mut queue, &mut back);
+        }
+        if y > 0 {
+            try_add((x, y - 1), &grid, &mut seen, &mut queue, &mut back);
+        }
+        if y < (SIZE - 1) as u8 {
+            try_add((x, y + 1), &grid, &mut seen, &mut queue, &mut back);
+        }
+    }
     return seen;
 }
 
