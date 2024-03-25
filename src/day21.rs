@@ -27,21 +27,25 @@ fn read_input() -> Grid<bool> {
     return result;
 }
 
-fn step(grid: &Grid<bool>, from: &Grid<bool>, to: &mut Grid<bool>) {
-    for y in 0..SIZE {
-        for x in 0..SIZE {
-            if !grid[y][x] {
-                let up = if y > 0 { from[y - 1][x] } else { false };
-                let down = if y < SIZE - 1 { from[y + 1][x] } else { false };
-                let left = if x > 0 { from[y][x - 1] } else { false };
-                let right = if x < SIZE - 1 { from[y][x + 1] } else { false };
-                to[y][x] = up | down | left | right;
-            }
-        }
-    }
+fn explore(grid: &Grid<bool>, (x, y): (usize, usize), seen: &mut Grid<bool>) {
+    if grid[y][x] || seen[y][x] { return }
+    seen[y][x] = true;
+    if x < SIZE - 1 { explore(grid, (x + 1, y), seen) }
+    if x > 0 { explore(grid, (x - 1, y), seen) }
+    if y < SIZE - 1 { explore(grid, (x, y + 1), seen) }
+    if y > 0 { explore(grid, (x, y - 1), seen) }
 }
 
-fn part2(grid: &Grid<bool>, at130: &Grid<bool>, at131: &Grid<bool>) -> usize {
+fn reachable(grid: &Grid<bool>) -> Grid<bool> {
+    let mut seen = [[false; SIZE]; SIZE];
+    explore(grid, (65, 65), &mut seen);
+    return seen;
+}
+
+fn main() {
+    let grid = read_input();
+    let reachable = reachable(&grid);
+
     // The input grid has some specific properties which ensure that there is symmetry in how the
     // visited set expands outwards in the tiled grid:
     //
@@ -72,8 +76,8 @@ fn part2(grid: &Grid<bool>, at130: &Grid<bool>, at131: &Grid<bool>) -> usize {
     // which are an odd distance away from the origin.             |  |\/|  |
     // These can be calculated directly from the grid:             +--+--+--+
     //
-    //   * Count spaces `(x, y)` in the four corners (split along the diagonals) which have an odd
-    //     value for `x + y` and are not walls from the grid.
+    //   * Count reachable spaces `(x, y)` in the four corners (split along the diagonals) which
+    //     have an odd value for `x + y` and are not walls from the grid.
     //   * Construct the counts for each of the aforementioned tile combinations using combinations
     //     of these counts.
     let mut tl = [0, 0];
@@ -83,29 +87,27 @@ fn part2(grid: &Grid<bool>, at130: &Grid<bool>, at131: &Grid<bool>) -> usize {
     let mut total = [0, 0];
     for y in 0..SIZE {
         for x in 0..SIZE {
-            if grid[y][x] { continue }
+            if !reachable[y][x] { continue }
             let ix = SIZE - x - 1;
             let iy = SIZE - y - 1;
             let is_tl = x + y < SIZE / 2;
             let is_tr = ix + y < SIZE / 2;
             let is_bl = x + iy < SIZE / 2;
             let is_br = ix + iy < SIZE / 2;
-            if at130[y][x] {
-                total[0] += 1;
-                if is_tl { tl[0] += 1 }
-                if is_tr { tr[0] += 1 }
-                if is_bl { bl[0] += 1 }
-                if is_br { br[0] += 1 }
-            }
-            if at131[y][x] {
-                total[1] += 1;
-                if is_tl { tl[1] += 1 }
-                if is_tr { tr[1] += 1 }
-                if is_bl { bl[1] += 1 }
-                if is_br { br[1] += 1 }
-            }
+            let parity = (x + y) % 2;
+            total[parity] += 1;
+            if is_tl { tl[parity] += 1 }
+            if is_tr { tr[parity] += 1 }
+            if is_bl { bl[parity] += 1 }
+            if is_br { br[parity] += 1 }
         }
     }
+
+    let part1 = total[0] - tl[0] - tr[0] - bl[0] - br[0];
+
+    // Part 2: Infer the result after `100 * 2023 * SIZE + SIZE / 2` steps. To do this, we need the
+    // state of the grid after 130 steps and 131 steps. We can construct the final state by
+    // inspection.
     const N: usize = 26501365;
     const INDEX: usize = (N - SIZE) / SIZE;
     // The number of full tiles grows according to this series (derived by inspection):
@@ -134,36 +136,7 @@ fn part2(grid: &Grid<bool>, at130: &Grid<bool>, at131: &Grid<bool>) -> usize {
     let blb = total[1] - tr[1];
     let brb = total[1] - tl[1];
     let slopes = NUM_SLOPE_A * (tla + tra + bla + bra) + NUM_SLOPE_B * (tlb + trb + blb + brb);
-    return full + points + slopes;
-}
+    let part2 = full + points + slopes;
 
-fn main() {
-    let grid = read_input();
-
-    // Part 1: Iterate until 64 steps and then count the cells.
-    let mut a = [[false; SIZE]; SIZE];
-    let mut b = a;
-    a[65][65] = true;
-    for i in 0..64 {
-        let (from, to) = if i % 2 == 0 {
-            (&a, &mut b)
-        } else {
-            (&b, &mut a)
-        };
-        step(&grid, from, to);
-    }
-    let part1 = a.iter().flatten().filter(|x| **x).count();
-
-    // Part 2: Infer the result after `100 * 2023 * SIZE + SIZE / 2` steps. To do this, we need the
-    // state of the grid after 130 steps and 131 steps. We can construct the final state by
-    // inspection.
-    for i in 64..132 {
-        let (from, to) = if i % 2 == 0 {
-            (&a, &mut b)
-        } else {
-            (&b, &mut a)
-        };
-        step(&grid, from, to);
-    }
-    print!("{}\n{}\n", part1, part2(&grid, &a, &b));
+    print!("{}\n{}\n", part1, part2);
 }
