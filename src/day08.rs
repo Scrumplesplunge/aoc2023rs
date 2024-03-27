@@ -1,110 +1,92 @@
 use std::io;
+use std::io::Read;
 use num_integer;
 
-fn read_id(id: &str) -> u16 {
-    let mut n: u16 = 0;
-    for c in id.chars().take(3) {
-        n = 32 * n + (c as u16 - 'A' as u16);
-    }
-    return n;
-}
-
-fn is_start(id: u16) -> bool { id % 32 == 0 }
-fn is_end(id: u16) -> bool { id % 32 == 25 }
-
-const NODE_SIZE: usize = 17;  // Gives the best performance on my machine.
-type Node = [(u16, (u16, u16)); NODE_SIZE];
-
-fn read_input() -> (Vec<bool>, Vec<Node>) {
-    let mut step_line = String::new();
-    io::stdin().read_line(&mut step_line).unwrap();
-    step_line.pop();
-    let steps = step_line.chars().map(|c| c == 'L').collect();
-    let mut nodes: Vec<(u16, (u16, u16))> = Vec::new();
-    for line in io::stdin().lines().skip(1).map(|l| l.unwrap()) {
-        let (node, branches) = line.split_once(" = ").unwrap();
-        let (l, r) = branches
-            .strip_prefix("(").unwrap()
-            .strip_suffix(")").unwrap()
-            .split_once(", ").unwrap();
-        nodes.push((read_id(node), (read_id(l), read_id(r))));
-    }
-
-    // Sort the list of nodes into a btree.
-    let btree_size = (nodes.len() + NODE_SIZE - 1) / NODE_SIZE;
-    let mut btree = vec![[(65535, (0, 0)); NODE_SIZE]; btree_size];
-    nodes.sort();
-    fill_btree(0, &mut btree, &nodes);
-    return (steps, btree);
-}
-
-fn fill_btree<'a>(
-    index: usize,
-    tree: &mut[Node],
-    values: &'a [(u16, (u16, u16))],
-) -> &'a [(u16, (u16, u16))] {
-    if index >= tree.len() { return values }
-    let children_index = (NODE_SIZE + 1) * index + 1;
-    let mut values = fill_btree(children_index, tree, values);
-    for j in 0 .. NODE_SIZE {
-        if values.is_empty() { break }
-        tree[index][j] = values[0];
-        values = fill_btree(children_index + j + 1, tree, &values[1..]);
-    }
-    return values;
-}
-
-fn btree_find(index: usize, tree: &[Node], key: u16) -> (u16, u16) {
-    if index >= tree.len() { panic!("not found: {}", key) }
-    let children_base = (NODE_SIZE + 1) * index + 1;
-    for j in 0 .. NODE_SIZE {
-        let (k, v) = tree[index][j];
-        if k == key { return v }
-        if k > key { return btree_find(children_base + j, tree, key) }
-    }
-    return btree_find(children_base + NODE_SIZE, tree, key);
-}
-
-fn part1(steps: &[bool], nodes: &[Node]) -> u32 {
-    let mut directions = steps.iter().cycle();
-    let mut num_steps = 0;
-    let mut node: u16 = read_id("AAA");
-    while node != read_id("ZZZ") {
-        num_steps += 1;
-        let (l, r) = btree_find(0, nodes, node);
-        match directions.next().unwrap() {
-            true => { node = l },
-            false => { node = r },
+fn id(x: &[u8; 3]) -> u16 {
+    let mut out = 0;
+    for b in x {
+        match b {
+            b'A'..=b'Z' => out = 32 * out + (b - b'A' + 1) as u16,
+            _ => panic!("bad id"),
         }
+    }
+    return out;
+}
+
+fn is_end(id: u16) -> bool { id % 32 == 26 }
+
+const MAX_NODES: usize = 26 * 32 * 32 + 26 * 32 + 26 + 1;
+type Nodes = [[u16; 2]; MAX_NODES];
+
+fn read_input<'a>(
+    step_buffer: &'a mut [bool],
+    nodes: &mut Nodes,
+) -> &'a [bool] {
+    let mut buffer = [0; 14 * 1024];
+    let len = io::stdin().read(&mut buffer).unwrap();
+    if len == 0 || buffer[len - 1] != b'\n' { panic!("bad input") }
+    let input = &buffer[0..len - 1];
+    let num_steps = input.iter().position(|b| *b == b'\n').unwrap();
+    for i in 0..num_steps {
+        match input[i] {
+            b'L' => step_buffer[i] = false,
+            b'R' => step_buffer[i] = true,
+            _ => panic!("bad step"),
+        }
+    }
+    let body = &input[num_steps + 2..];
+    for line in body.split(|b| *b == b'\n') {
+        match line {
+            [a1, a2, a3, b' ', b'=', b' ', b'(', b1, b2, b3, b',', b' ', c1, c2, c3, b')'] => {
+                nodes[id(&[*a1, *a2, *a3]) as usize] = [id(&[*b1, *b2, *b3]), id(&[*c1, *c2, *c3])];
+            }
+            _ => panic!("bad node"),
+        }
+    }
+
+    return &step_buffer[0..num_steps];
+}
+
+fn part1(steps: &[bool], nodes: &Nodes) -> u32 {
+    let mut next_step = 0;
+    let mut num_steps = 0;
+    let mut node: u16 = id(b"AAA");
+    let end = id(b"ZZZ");
+    while node != end {
+        let d = steps[next_step] as usize;
+        next_step += 1;
+        if next_step >= steps.len() { next_step = 0 }
+        node = nodes[node as usize][d];
+        num_steps += 1;
     }
     return num_steps;
 }
 
-fn part2(steps: &[bool], nodes: &[Node]) -> u64 {
-    let mut directions = steps.iter().cycle();
+fn part2(steps: &[bool], nodes: &Nodes) -> u64 {
     let mut total = 1;
-    let start_nodes = nodes
-        .iter()
-        .flatten()
-        .map(|(k, _)| *k)
-        .filter(|k| is_start(*k));
-    for start in start_nodes {
-        let mut node: u16 = start;
-        let mut num_steps = 0;
-        while !is_end(node) {
-            num_steps += 1;
-            let (l, r) = btree_find(0, &nodes, node);
-            match directions.next().unwrap() {
-                true => { node = l },
-                false => { node = r },
+    for a in b'A'..=b'Z' {
+        for b in b'A'..=b'Z' {
+            let start = id(&[a, b, b'A']);
+            if nodes[start as usize][0] == 0 { continue }
+            let mut node: u16 = start;
+            let mut num_steps = 0;
+            let mut next_step = 0;
+            while !is_end(node) {
+                let d = steps[next_step] as usize;
+                next_step += 1;
+                if next_step >= steps.len() { next_step = 0 }
+                node = nodes[node as usize][d];
+                num_steps += 1;
             }
+            total = num_integer::lcm(total, num_steps);
         }
-        total = num_integer::lcm(total, num_steps);
     }
     return total;
 }
 
 fn main() {
-    let (steps, nodes) = read_input();
+    let mut step_buffer = [false; 300];
+    let mut nodes = [[0, 0]; MAX_NODES];
+    let steps = read_input(&mut step_buffer, &mut nodes);
     print!("{}\n{}\n", part1(&steps, &nodes), part2(&steps, &nodes));
 }
