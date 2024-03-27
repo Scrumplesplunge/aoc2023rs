@@ -114,20 +114,23 @@ fn main() {
 
     // Count the number of other bricks that fall if we remove each brick.
     let mut part2 = 0;
+    // `supported[i]` is true if brick `i` is still supported without `brick`.
+    let mut supported = [false; MAX_BRICKS];
+    supported[0] = true;
+    // `contacts[j]` is the first contact `(a, b)` where `b > brick`.
+    let mut j = 0;
     for brick in 1..=num_bricks {
-        // `supported[i]` is true if brick `i` is still supported without `brick`.
-        let mut supported = [false; MAX_BRICKS];
-        supported[0] = true;
-        // `contacts` is sorted by `b`, so by the time we process `(a, b)`, we must have already
-        // processed any `(x, a)` and thus would have already populated `supported[a]`. This means
-        // that we can calculate `supported` in a single pass.
-        for (a, b) in contacts {
-            if *b as usize != brick && supported[*a as usize] {
-                supported[*b as usize] = true;
-            }
+        supported[brick..].fill(false);
+        while j < contacts.len() && contacts[j].1 as usize <= brick { j += 1 }
+        // Find all bricks that are still transitively supported. We can do this in a single forward
+        // pass over the suffix of `contacts` because `contacts` is sorted by the second element
+        // (the supported brick), so we will always have processed the support brick before we
+        // process the supported brick for any particular contact.
+        for (a, b) in &contacts[j..] {
+            supported[*b as usize] |= supported[*a as usize];
         }
-        let num_supported = &supported[1..=num_bricks].iter().filter(|x| **x).count();
-        part2 += num_bricks - num_supported - 1;
+        part2 += supported[brick + 1..=num_bricks].iter().filter(|x| !**x).count();
+        supported[brick] = true;
     }
 
     print!("{}\n{}\n", part1, part2);
