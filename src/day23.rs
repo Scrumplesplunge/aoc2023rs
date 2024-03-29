@@ -2,7 +2,7 @@ use std::io;
 use std::io::Read;
 
 const GRID_SIZE: usize = 141;
-const MAX_EDGES: usize = 256;
+const MAX_EDGES: usize = 128;
 
 const ROW: usize = GRID_SIZE + 1;
 const START: usize = 1;                  // First few bytes are "# ###"
@@ -105,42 +105,37 @@ fn graphify(
     }
 }
 
-// `m[i][j]` is the distance from node `i` to node `j`.
-type AdjacencyMatrix = [[Option<u16>; MAX_NODES]; MAX_NODES];
+// `m[i][j]` is the distance from node `i` to node `j`, or 0 if not connected.
+type AdjacencyMatrix = [[u16; MAX_NODES]; MAX_NODES];
 
 fn part1(edges: &[Edge]) -> AdjacencyMatrix {
-    let mut result = [[None; MAX_NODES]; MAX_NODES];
+    let mut result = [[0; MAX_NODES]; MAX_NODES];
     for (a, b, hills, n) in edges {
-        if hills & UPHILL == 0 { result[*a as usize][*b as usize] = Some(*n) }
-        if hills & DOWNHILL == 0 { result[*b as usize][*a as usize] = Some(*n) }
+        if hills & UPHILL == 0 { result[*a as usize][*b as usize] = *n }
+        if hills & DOWNHILL == 0 { result[*b as usize][*a as usize] = *n }
     }
     return result;
 }
 
 fn part2(edges: &[Edge]) -> AdjacencyMatrix {
-    let mut result = [[None; MAX_NODES]; MAX_NODES];
+    let mut result = [[0; MAX_NODES]; MAX_NODES];
     for (a, b, _, n) in edges {
-        result[*a as usize][*b as usize] = Some(*n);
-        result[*b as usize][*a as usize] = Some(*n);
+        result[*a as usize][*b as usize] = *n;
+        result[*b as usize][*a as usize] = *n;
     }
     return result;
 }
 
-fn longest_path(m: &AdjacencyMatrix, pos: Node) -> Option<u16> {
-    if pos == END_NODE { return Some(0) }
-    let mut best = None;
+fn longest_path(m: &AdjacencyMatrix, pos: Node, len: u16) -> u16 {
+    if pos == END_NODE { return len }
+    let mut best = 0;
     // Disconnect this node.
     let mut m2 = *m;
-    for i in 0..MAX_NODES { m2[i][pos as usize] = None }
+    for i in 0..MAX_NODES { m2[i][pos as usize] = 0 }
     for next in 0..MAX_NODES {
-        if let Some(n) = m[pos as usize][next] {
-            best = match (best, longest_path(&m2, next as Node)) {
-                (None, None) => None,
-                (None, Some(x)) => Some(n + x),
-                (x, None) => x,
-                (Some(a), Some(b)) => Some(a.max(n + b)),
-            }
-        }
+        let n = m[pos as usize][next];
+        if n == 0 { continue }
+        best = best.max(longest_path(&m2, next as Node, len + n));
     }
     return best;
 }
@@ -149,6 +144,6 @@ fn main() {
     let mut edge_buffer = [(0, 0, 0, 0); MAX_EDGES];
     let edges = read_input(&mut edge_buffer);
 
-    print!("{}\n{}\n", longest_path(&part1(&edges), START_NODE).unwrap(),
-                       longest_path(&part2(&edges), START_NODE).unwrap());
+    print!("{}\n{}\n", longest_path(&part1(&edges), START_NODE, 0),
+                       longest_path(&part2(&edges), START_NODE, 0));
 }
