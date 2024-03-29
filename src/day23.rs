@@ -11,7 +11,7 @@ const END: usize = ROW * GRID_SIZE - 3;  // Last few bytes are "# #\n"
 type Node = u16;
 const START_NODE: Node = 0;
 const END_NODE: Node = 1;
-const MAX_NODES: usize = 40;
+const MAX_NODES: usize = 36;
 
 const UPHILL: u8 = 1;
 const DOWNHILL: u8 = 2;
@@ -126,16 +126,15 @@ fn part2(edges: &[Edge]) -> AdjacencyMatrix {
     return result;
 }
 
-fn longest_path(m: &AdjacencyMatrix, pos: Node, len: u16) -> u16 {
+fn longest_path(m: &AdjacencyMatrix, visited: u64, pos: Node, len: u16) -> u16 {
+    if visited & (1 << pos) != 0 { return 0 }
     if pos == END_NODE { return len }
     let mut best = 0;
-    // Disconnect this node.
-    let mut m2 = *m;
-    for i in 0..MAX_NODES { m2[i][pos as usize] = 0 }
+    let visited = visited | 1 << pos;
     for next in 0..MAX_NODES {
         let n = m[pos as usize][next];
         if n == 0 { continue }
-        best = best.max(longest_path(&m2, next as Node, len + n));
+        best = best.max(longest_path(m, visited, next as Node, len + n));
     }
     return best;
 }
@@ -144,6 +143,6 @@ fn main() {
     let mut edge_buffer = [(0, 0, 0, 0); MAX_EDGES];
     let edges = read_input(&mut edge_buffer);
 
-    print!("{}\n{}\n", longest_path(&part1(&edges), START_NODE, 0),
-                       longest_path(&part2(&edges), START_NODE, 0));
+    print!("{}\n{}\n", longest_path(&part1(&edges), 0, START_NODE, 0),
+                       longest_path(&part2(&edges), 0, START_NODE, 0));
 }
