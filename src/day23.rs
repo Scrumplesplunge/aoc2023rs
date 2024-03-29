@@ -94,8 +94,10 @@ fn graphify(
                     graphify(grid, nodes, num_nodes, edges, num_edges, pos, &next[0..num_next]);
                 }
                 let end_id = nodes[pos];
-                edges[*num_edges] = (id, end_id, hills, len);
-                *num_edges += 1;
+                if id < end_id {
+                    edges[*num_edges] = (id, end_id, hills, len);
+                    *num_edges += 1;
+                }
                 break;
             } else {
                 // Dead end. No edges to add.
@@ -118,12 +120,61 @@ fn part1(edges: &[Edge]) -> AdjacencyMatrix {
 }
 
 fn part2(edges: &[Edge]) -> AdjacencyMatrix {
-    let mut result = [[0; MAX_NODES]; MAX_NODES];
+    let mut m = [[0; MAX_NODES]; MAX_NODES];
+    let mut neighbors = [0; MAX_NODES];
     for (a, b, _, n) in edges {
-        result[*a as usize][*b as usize] = *n;
-        result[*b as usize][*a as usize] = *n;
+        neighbors[*a as usize] += 1;
+        neighbors[*b as usize] += 1;
+        m[*a as usize][*b as usize] = *n;
+        m[*b as usize][*a as usize] = *n;
     }
-    return result;
+    // Find the unique node connected to the entrance.
+    let mut s = 0;
+    for i in 0..MAX_NODES {
+        if m[START_NODE as usize][i] != 0 {
+            s = i;
+            break;
+        }
+    }
+    if s == 0 { panic!("s!") }
+    // Remove edges going back to the start.
+    m[s][START_NODE as usize] = 0;
+    // Find the unique node connected to the exit.
+    let mut e = 0;
+    for i in 0..MAX_NODES {
+        if m[i][END_NODE as usize] != 0 {
+            e = i;
+            break;
+        }
+    }
+    if e == 0 { panic!("e!") }
+    // The input forms a perfect grid of    S - N - N - N . .
+    // nodes with the corners chopped off.      |   |   | \ .
+    // Every perimeter node has exactly 3       N - N - N - N
+    // neighbours and all internal nodes        |   |   |   |
+    // have four. We never want to go           N - N - N - N
+    // backwards around the perimeter,          . \ |   |   |
+    // back towards S, because that will        . . N - N - N - E
+    // always result in a dead-end.
+    for i in 0..MAX_NODES {
+        if m[s][i] == 0 { continue }
+        let mut pos = i;
+        loop {
+            // Find the next node around the perimeter.
+            let mut next = 1234;
+            for j in 0..MAX_NODES {
+                if m[pos][j] > 0 && (j == e || neighbors[j] == 3) {
+                    next = j;
+                    break;
+                }
+            }
+            if next == 1234 { panic!("wah") }
+            m[next][pos] = 0;
+            if next == e { break }
+            pos = next;
+        }
+    }
+    return m;
 }
 
 fn longest_path(m: &AdjacencyMatrix, visited: u64, pos: Node, len: u16) -> u16 {
