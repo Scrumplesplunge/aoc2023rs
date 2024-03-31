@@ -107,47 +107,42 @@ fn graphify(
     }
 }
 
-// `m[i][j]` is the distance from node `i` to node `j`, or 0 if not connected.
-type AdjacencyMatrix = [[u16; MAX_NODES]; MAX_NODES];
+// `m[a][i]` is a pair `(b, n)` indicating an edge of length `n` between nodes `a` and `b`. If `n`
+// is `0`, it means that no such edge exists.
+type AdjacencyMatrix = [[(Node, u16); 4]; MAX_NODES];
 
 fn part1(edges: &[Edge]) -> AdjacencyMatrix {
-    let mut result = [[0; MAX_NODES]; MAX_NODES];
+    let mut neighbors = [0; MAX_NODES];
+    let mut result = [[(0, 0); 4]; MAX_NODES];
     for (a, b, hills, n) in edges {
-        if hills & UPHILL == 0 { result[*a as usize][*b as usize] = *n }
-        if hills & DOWNHILL == 0 { result[*b as usize][*a as usize] = *n }
+        if hills & UPHILL == 0 {
+            let i = neighbors[*a as usize];
+            neighbors[*a as usize] += 1;
+            result[*a as usize][i] = (*b, *n);
+        }
+        if hills & DOWNHILL == 0 {
+            let i = neighbors[*b as usize];
+            neighbors[*b as usize] += 1;
+            result[*b as usize][i] = (*a, *n);
+        }
     }
     return result;
 }
 
 fn part2(edges: &[Edge]) -> AdjacencyMatrix {
-    let mut m = [[0; MAX_NODES]; MAX_NODES];
     let mut neighbors = [0; MAX_NODES];
+    let mut result = [[(0, 0); 4]; MAX_NODES];
     for (a, b, _, n) in edges {
+        let i = neighbors[*a as usize];
         neighbors[*a as usize] += 1;
+        result[*a as usize][i] = (*b, *n);
+        let j = neighbors[*b as usize];
         neighbors[*b as usize] += 1;
-        m[*a as usize][*b as usize] = *n;
-        m[*b as usize][*a as usize] = *n;
+        result[*b as usize][j] = (*a, *n);
     }
-    // Find the unique node connected to the entrance.
-    let mut s = 0;
-    for i in 0..MAX_NODES {
-        if m[START_NODE as usize][i] != 0 {
-            s = i;
-            break;
-        }
-    }
-    if s == 0 { panic!("s!") }
-    // Remove edges going back to the start.
-    m[s][START_NODE as usize] = 0;
     // Find the unique node connected to the exit.
-    let mut e = 0;
-    for i in 0..MAX_NODES {
-        if m[i][END_NODE as usize] != 0 {
-            e = i;
-            break;
-        }
-    }
-    if e == 0 { panic!("e!") }
+    let s = result[START_NODE as usize][0].0 as usize;
+    let e = result[END_NODE as usize][0].0 as usize;
     // The input forms a perfect grid of    S - N - N - N . .
     // nodes with the corners chopped off.      |   |   | \ .
     // Every perimeter node has exactly 3       N - N - N - N
@@ -156,25 +151,23 @@ fn part2(edges: &[Edge]) -> AdjacencyMatrix {
     // backwards around the perimeter,          . \ |   |   |
     // back towards S, because that will        . . N - N - N - E
     // always result in a dead-end.
-    for i in 0..MAX_NODES {
-        if m[s][i] == 0 { continue }
-        let mut pos = i;
+    for i in 0..2 {
+        let mut pos = result[s][i].0 as usize;
         loop {
             // Find the next node around the perimeter.
-            let mut next = 1234;
-            for j in 0..MAX_NODES {
-                if m[pos][j] > 0 && (j == e || neighbors[j] == 3) {
-                    next = j;
-                    break;
-                }
-            }
-            if next == 1234 { panic!("wah") }
-            m[next][pos] = 0;
+            let next = result[pos]
+                .iter()
+                .find(|(next, _)| neighbors[*next as usize] == 3)
+                .unwrap().0 as usize;
+            // Remove the backwards edge.
+            let b = result[next as usize].iter().position(|(x, _)| *x as usize == pos).unwrap();
+            result[next as usize].copy_within(b + 1..4, b);
+            result[next as usize][3] = (0, 0);
             if next == e { break }
             pos = next;
         }
     }
-    return m;
+    return result;
 }
 
 fn longest_path(m: &AdjacencyMatrix, visited: u64, pos: Node, len: u16) -> u16 {
@@ -182,10 +175,9 @@ fn longest_path(m: &AdjacencyMatrix, visited: u64, pos: Node, len: u16) -> u16 {
     if pos == END_NODE { return len }
     let mut best = 0;
     let visited = visited | 1 << pos;
-    for next in 0..MAX_NODES {
-        let n = m[pos as usize][next];
-        if n == 0 { continue }
-        best = best.max(longest_path(m, visited, next as Node, len + n));
+    for (next, n) in m[pos as usize] {
+        if n == 0 { break }
+        best = best.max(longest_path(m, visited, next, len + n));
     }
     return best;
 }
