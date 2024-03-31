@@ -107,5 +107,10 @@ path = "src/day23.rs"
 name = "day24"
 path = "src/day24.rs"
 
+[[bin]]
+name = "day25"
+path = "src/day25.rs"
+
 [dependencies]
 num-integer = "~0.1.46"
+rand = "~0.8.5"
