@@ -170,14 +170,31 @@ fn part2(edges: &[Edge]) -> AdjacencyMatrix {
     return result;
 }
 
-fn longest_path(m: &AdjacencyMatrix, visited: u64, pos: Node, len: u16) -> u16 {
-    if visited & (1 << pos) != 0 { return 0 }
-    if pos == END_NODE { return len }
+fn longest_path(m: &AdjacencyMatrix) -> u16 {
+    // `path[i]` is a tuple `(x, n, i)` where `x` is the node at the end of the path, `n` is the
+    // length of the path up until that point, and `i` is the index of the next neighbor of `x` to
+    // explore when recursing downwards.
+    let mut path = [(0, 0, 0); 36];
+    path[0] = (START_NODE, 0, 0);
+    let mut path_nodes = 1;
+    let mut visited: u64 = 1 << START_NODE;
     let mut best = 0;
-    let visited = visited | 1 << pos;
-    for (next, n) in m[pos as usize] {
-        if n == 0 { break }
-        best = best.max(longest_path(m, visited, next, len + n));
+    while path_nodes > 0 {
+        let (pos, path_len, i) = &mut path[path_nodes - 1];
+        if *i < 4 && m[*pos as usize][*i].1 != 0 {
+            let (next, n) = m[*pos as usize][*i];
+            *i += 1;
+            if next == END_NODE {
+                best = best.max(*path_len + n);
+            } else if visited & (1 << next) == 0 {
+                visited |= 1 << next;
+                path[path_nodes] = (next, *path_len + n, 0);
+                path_nodes += 1;
+            }
+        } else {
+            visited ^= 1 << *pos;
+            path_nodes -= 1;
+        }
     }
     return best;
 }
@@ -186,6 +203,5 @@ fn main() {
     let mut edge_buffer = [(0, 0, 0, 0); MAX_EDGES];
     let edges = read_input(&mut edge_buffer);
 
-    print!("{}\n{}\n", longest_path(&part1(&edges), 0, START_NODE, 0),
-                       longest_path(&part2(&edges), 0, START_NODE, 0));
+    print!("{}\n{}\n", longest_path(&part1(&edges)), longest_path(&part2(&edges)));
 }
