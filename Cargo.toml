@@ -5,11 +5,9 @@ edition = "2021"
 
 [profile.release]
 codegen-units = 1  # Improve output quality at the cost of slower compilation.
-lto = true
-opt-level = "z"  # Optimize for size.
-panic = "abort"  # Abort instead of unwinding on a panic.
-# strip = true
-debug = "full"
+lto = true         # Enable link-time optimization.
+opt-level = "z"    # Optimize for size.
+panic = "abort"    # Abort instead of unwinding on a panic.
 
 [[bin]]
 name = "day01"
