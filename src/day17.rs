@@ -3,7 +3,7 @@ use std::io::Read;
 
 const MAX_SIZE: usize = 141;
 const BUFFER_SIZE: usize = (MAX_SIZE + 1) * MAX_SIZE;
-const QUEUE_SIZE: usize = 48000;
+const QUEUE_SIZE: usize = 64000;
 
 #[derive(Copy, Clone, Default)]
 enum Direction {

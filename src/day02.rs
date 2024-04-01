@@ -10,14 +10,16 @@ fn parse_int(s: &mut &str) -> u32 {
 }
 
 fn main() {
-    let mut buffer = [0; 10240];
+    let mut buffer = [0; 11 * 1024];
     let size = io::stdin().read(&mut buffer).unwrap();
     let input = str::from_utf8(&buffer[0..size]).unwrap();
     let mut i = input;
 
     let mut part1 = 0;
     let mut part2 = 0;
+    let mut rec = 0;
     while !i.is_empty() {
+        rec += 1;
         i = i.strip_prefix("Game ").unwrap();
         let id = parse_int(&mut i);
         i = i.strip_prefix(": ").unwrap();
@@ -33,9 +35,11 @@ fn main() {
             } else if let Some(j) = i.strip_prefix(" green") {
                 i = j;
                 g = g.max(count);
-            } else {
-                i = i.strip_prefix(" blue").unwrap();
+            } else if let Some(j) = i.strip_prefix(" blue") {
+                i = j;
                 b = b.max(count);
+            } else {
+                panic!("line {}: can't parse suffix: {}", rec, i);
             }
             if i.chars().nth(0).unwrap() == '\n' { break }
             if let Some(j) = i.strip_prefix("; ") {
